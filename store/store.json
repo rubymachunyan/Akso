@@ -1,0 +1,16 @@
+{
+    "materials": [
+        {
+            "name": "apple",
+            "type": "Fruit",
+            "description": "a kind of fruit",
+            "tags": "vc, fruit"
+        },
+        {
+            "name": "orange",
+            "type": "Fruit",
+            "description": "a kind of fruit",
+            "tags": "vc, fruit"
+        }
+    ]
+}
