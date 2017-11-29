@@ -1,0 +1,15 @@
+{
+	"ImportPath": "food",
+	"GoVersion": "go1.8",
+	"GodepVersion": "v79",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Comment": "v1.5.0",
+			"Rev": "24fca303ac6da784b9e8269f724ddeb0b2eea5e7"
+		}
+	]
+}
