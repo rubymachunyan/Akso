@@ -8,6 +8,10 @@ type Material struct {
 	Alias       string `json:"alias,omitempty"`
 }
 
+type MaterialType struct {
+	Name string `json:"name"`
+}
+
 type MaterialStore struct {
 	Materials []*Material `json:"materials,omitempty"`
 }
