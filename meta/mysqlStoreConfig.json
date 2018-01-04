@@ -1,0 +1,4 @@
+{
+    "storeType": "mysql",
+    "dataSourceName": "root:akso@tcp(127.0.0.1:13306)/akso"
+}

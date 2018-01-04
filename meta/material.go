@@ -2,24 +2,42 @@ package meta
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"io/ioutil"
 	"strings"
 )
 
+type StoreConfig struct {
+	StoreType       string `json:"storeType"`
+	MysqlDatasource string `json:"dataSourceName,omitempty"`
+}
+
 func main() {
-	db, err := sql.Open("mysql", "root:akso@tcp(127.0.0.1:13306)/akso")
+	db, err := connectMySqlDB()
 	if err != nil {
 		panic(err.Error())
 	}
 }
 
 func connectMySqlDB() (*sql.DB, error) {
-	db, err := sql.Open("mysql", "root:akso@tcp(127.0.0.1:13306)/akso")
+	storeConfig, _ := readStoreConfig("./mysqlStoreConfig.json")
+	db, err := sql.Open(storeConfig.StoreType, storeConfig.MysqlDatasource)
 	if err != nil {
 		return nil, err
 	}
 	return &db, err
+}
+
+func readStoreConfig(configFileLocation string) (*StoreConfig, error) {
+	var storeConfig StoreConfig
+	raw, err := ioutil.ReadFile(configFileLocation)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(raw, &storeConfig)
+	return &storeConfig, err
 }
 
 func createMaterial(db *sql.DB, material *Material) error {
