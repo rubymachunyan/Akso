@@ -3,31 +3,35 @@ package meta
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"io/ioutil"
 	"strings"
+	//db package
+	_ "github.com/go-sql-driver/mysql"
 )
 
+//StoreConfig : db configuration info
 type StoreConfig struct {
 	StoreType       string `json:"storeType"`
 	MysqlDatasource string `json:"dataSourceName,omitempty"`
 }
 
-func main() {
-	db, err := connectMySqlDB()
+func testDBConnect() {
+	db, err := connectMySQLDB()
 	if err != nil {
 		panic(err.Error())
 	}
+	var materialType *MaterialType
+	materialType.Name = "Potato"
+	createMaterialType(db, materialType)
 }
 
-func connectMySqlDB() (*sql.DB, error) {
+func connectMySQLDB() (*sql.DB, error) {
 	storeConfig, _ := readStoreConfig("./mysqlStoreConfig.json")
 	db, err := sql.Open(storeConfig.StoreType, storeConfig.MysqlDatasource)
 	if err != nil {
 		return nil, err
 	}
-	return &db, err
+	return db, err
 }
 
 func readStoreConfig(configFileLocation string) (*StoreConfig, error) {
@@ -49,7 +53,7 @@ func createMaterial(db *sql.DB, material *Material) error {
 	//get aliasid, if not exist in alias table, insert
 	row := db.QueryRow("select id from alias where materialname=?", material.Name)
 	var aliasID int64 = -1
-	err := row.Scan(&aliasID)
+	err = row.Scan(&aliasID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//insert into alias
@@ -63,7 +67,7 @@ func createMaterial(db *sql.DB, material *Material) error {
 				return err
 			}
 			//get aliasid which was just inserted
-			aliasID, err := rs.LastInsertId()
+			aliasID, err = rs.LastInsertId()
 			if err != nil {
 				return err
 			}
@@ -75,6 +79,7 @@ func createMaterial(db *sql.DB, material *Material) error {
 	allAlias := strings.Split(material.Alias, ";")
 	for i := 0; i < len(allAlias); i++ {
 		row := db.QueryRow("select id from alias where materialname=?", allAlias[i])
+		var tmp int
 		err := row.Scan(&tmp)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -84,7 +89,7 @@ func createMaterial(db *sql.DB, material *Material) error {
 					return err
 				}
 				defer stm.Close()
-				rs, err := stm.Exec(allAlias[i])
+				_, err = stm.Exec(allAlias[i])
 				if err != nil {
 					return err
 				}
@@ -93,9 +98,9 @@ func createMaterial(db *sql.DB, material *Material) error {
 	}
 
 	//get typeid
-	row := db.QueryRow("select id from materialtype where typename=?", material.Type)
+	row = db.QueryRow("select id from materialtype where typename=?", material.Type)
 	var typeID int64 = -1
-	err := row.Scan(&typeID)
+	err = row.Scan(&typeID)
 	if err != nil {
 		return err
 	}
@@ -106,13 +111,13 @@ func createMaterial(db *sql.DB, material *Material) error {
 		return err
 	}
 	defer stm.Close()
-	rs, err := stm.Exec(aliasID, typeID, material.Description)
+	_, err = stm.Exec(aliasID, typeID, material.Description)
 	if err != nil {
 		return err
 	}
 
 	//insert into tagsofmaterial
-	if material.Tags != nil && len(material.Tags) != 0 {
+	if len(material.Tags) != 0 {
 		allTag := strings.Split(material.Tags, ";")
 		for i := 0; i < len(allTag); i++ {
 			//get tagid
@@ -128,7 +133,7 @@ func createMaterial(db *sql.DB, material *Material) error {
 				return err
 			}
 			defer stm.Close()
-			rs, err := stm.Exec(aliasID, tagID)
+			_, err = stm.Exec(aliasID, tagID)
 			if err != nil {
 				return err
 			}
@@ -150,14 +155,14 @@ func updateMaterial(db *sql.DB, material *Material) error {
 	//get typeid
 	row := db.QueryRow("select id from materialtype where typename=?", material.Type)
 	var typeID int64 = -1
-	err := row.Scan(&typeID)
+	err = row.Scan(&typeID)
 	if err != nil {
 		return err
 	}
 	//get aliasid
-	row := db.QueryRow("select id from alias where materialname=?", material.Name)
+	row = db.QueryRow("select id from alias where materialname=?", material.Name)
 	var aliasID int64 = -1
-	err := row.Scan(&aliasID)
+	err = row.Scan(&aliasID)
 	if err != nil {
 		return err
 	}
@@ -167,23 +172,23 @@ func updateMaterial(db *sql.DB, material *Material) error {
 		return err
 	}
 	defer stm.Close()
-	rs, err := stm.Exec(material.Description, typeID, aliasID)
+	_, err = stm.Exec(material.Description, typeID, aliasID)
 	if err != nil {
 		return err
 	}
 	//update tagsofmaterial,delete existing records, add new ones
 	//delete
-	stm, err := tx.Prepare("delete from tagsofmaterial where aliasid=?")
+	stm, err = tx.Prepare("delete from tagsofmaterial where aliasid=?")
 	if err != nil {
 		return err
 	}
 	defer stm.Close()
-	rs, err := stm.Exec(aliasID)
+	_, err = stm.Exec(aliasID)
 	if err != nil {
 		return err
 	}
 	//add
-	if material.Tags != nil && len(material.Tags) != 0 {
+	if len(material.Tags) != 0 {
 		allTag := strings.Split(material.Tags, ";")
 		for i := 0; i < len(allTag); i++ {
 			//get tagid
@@ -199,7 +204,7 @@ func updateMaterial(db *sql.DB, material *Material) error {
 				return err
 			}
 			defer stm.Close()
-			rs, err := stm.Exec(aliasID, tagID)
+			_, err = stm.Exec(aliasID, tagID)
 			if err != nil {
 				return err
 			}
@@ -222,7 +227,7 @@ func deleteMaterial(db *sql.DB, materialName string) error {
 	//get aliasid
 	row := db.QueryRow("select id from alias where materialname=?", materialName)
 	var aliasID int64 = -1
-	err := row.Scan(&aliasID)
+	err = row.Scan(&aliasID)
 	if err != nil {
 		return err
 	}
@@ -232,17 +237,17 @@ func deleteMaterial(db *sql.DB, materialName string) error {
 		return err
 	}
 	defer stm.Close()
-	rs, err := stm.Exec(aliasID)
+	_, err = stm.Exec(aliasID)
 	if err != nil {
 		return err
 	}
 	//delete tagofmaterial
-	stm, err := tx.Prepare("delete from tagsofmaterial where aliasid=?")
+	stm, err = tx.Prepare("delete from tagsofmaterial where aliasid=?")
 	if err != nil {
 		return err
 	}
 	defer stm.Close()
-	rs, err := stm.Exec(aliasID)
+	_, err = stm.Exec(aliasID)
 	if err != nil {
 		return err
 	}
@@ -264,14 +269,14 @@ func getMaterial(db *sql.DB, materialName string) (*Material, error) {
 	row := db.QueryRow("select material.description, materialtype.typename  from material, materialtype, alias where alias.materialname=? and alias.id=material.aliasid and material.typeid=materialtype.id", materialName)
 	var description string
 	var typename string
-	err := row.Scan(&description, &typename)
+	err = row.Scan(&description, &typename)
 	if err != nil {
 		return nil, err
 	}
 	//get all alias
-	rows, err := store.DB.Query("select materialname from alias where id=(select id from alias where materialname=?)", materialName)
+	rows, _ := db.Query("select materialname from alias where id=(select id from alias where materialname=?)", materialName)
 	defer rows.Close()
-	var allalias string = ""
+	var allalias string
 	for rows.Next() {
 		var aliastmp string
 		err = rows.Scan(&aliastmp)
@@ -287,9 +292,9 @@ func getMaterial(db *sql.DB, materialName string) (*Material, error) {
 		}
 	}
 	//get all tag
-	rows, err := store.DB.Query("select tag.name from tag,tagsofmaterial,alias where alias.materialname=? and alias.id=tagsofmaterial.aliasid and tagsofmaterial.tagid=tag.id", materialName)
+	rows, _ = db.Query("select tag.name from tag,tagsofmaterial,alias where alias.materialname=? and alias.id=tagsofmaterial.aliasid and tagsofmaterial.tagid=tag.id", materialName)
 	defer rows.Close()
-	var alltag string = ""
+	var alltag string
 	for rows.Next() {
 		var tagtmp string
 		err = rows.Scan(&tagtmp)

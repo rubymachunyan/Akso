@@ -2,9 +2,8 @@ package meta
 
 import (
 	"database/sql"
-	"fmt"
+	//db package
 	_ "github.com/go-sql-driver/mysql"
-	"strings"
 )
 
 func createMaterialType(db *sql.DB, materialType *MaterialType) error {
@@ -12,7 +11,7 @@ func createMaterialType(db *sql.DB, materialType *MaterialType) error {
 	if err != nil {
 		return err
 	}
-	rs, err := stm.Exec(materialType.Name)
+	_, err = stm.Exec(materialType.Name)
 	if err != nil {
 		return err
 	}
@@ -25,7 +24,7 @@ func deleteMaterialType(db *sql.DB, typename string) error {
 	if err != nil {
 		return err
 	}
-	rs, err := stm.Exec(typename)
+	_, err = stm.Exec(typename)
 	if err != nil {
 		return err
 	}
