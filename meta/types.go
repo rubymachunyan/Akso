@@ -5,6 +5,11 @@ type Material struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
 	Tags        string `json:"tags,omitempty"`
+	Alias       string `json:"alias,omitempty"`
+}
+
+type MaterialType struct {
+	Name string `json:"name"`
 }
 
 type MaterialStore struct {
