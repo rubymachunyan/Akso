@@ -1,0 +1,238 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: akso-pv0
+  labels:
+    app: akso
+    type: local
+spec:
+  storageClassName: masterdbdata
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/masterdata/akso"
+    type: DirectoryOrCreate
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: akso-pv1
+  labels:
+    app: akso
+    type: local
+spec:
+  storageClassName: masterdbdata
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/masterdata/akso"
+    type: DirectoryOrCreate
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: akso-pv2
+  labels:
+    app: akso
+    type: local
+spec:
+  storageClassName: masterdbdata
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/masterdata/akso"
+    type: DirectoryOrCreate
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  ports:
+  - name: port3306
+    port: 3306
+  - name: port33060
+    port: 33060
+  - name: port6446
+    port: 6446
+  - name: port6447
+    port: 6447
+  - name: port6606
+    port: 6606
+  clusterIP: None
+  selector:
+    ptype: dbnode
+
+---
+
+apiVersion: apps/v1beta2 # for versions before 1.8.0 use apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: akso-mysql
+spec:
+  selector:
+    matchLabels:
+      app: akso-mysql
+  serviceName: mysql
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: akso-mysql
+        ptype: dbnode
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - akso-mysql
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: mysql
+        image: polaris007/akso-mysql:latest
+        tty: true
+        stdin: true
+        env:
+        - name: PODPREFIX
+          value: "akso-mysql"
+        ports:
+        - name: mysql3306
+          containerPort: 3306
+        - name: mysql33060
+          containerPort: 33060
+        - name: mysql6446
+          containerPort: 6446
+        - name: mysql6447
+          containerPort: 6447
+        - name: mysql6606
+          containerPort: 6606
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+          subPath: mysql
+        #resources:
+        #  requests:
+        #    cpu: 500m
+        #    memory: 1Gi
+        livenessProbe:
+          exec:
+            command: ["mysqladmin","-uroot", "-ppassw0rd", "ping"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            # Check we can execute queries over TCP (skip-networking is off).
+            command: ["mysql", "-h127.0.0.1", "-uroot", "-ppassw0rd", "-e", "SELECT 1"]
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 1
+  volumeClaimTemplates:
+  - metadata:
+      annotations:
+        "helm.sh/resource-policy": delete
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: masterdbdata
+      resources:
+        requests:
+          storage: 3Gi
+
+---
+
+kind: Deployment
+apiVersion: apps/v1beta2
+metadata:
+  name: akso-router
+  labels:
+    ptype: router
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: akso-router
+  template:
+    metadata:
+      labels:
+        app: akso-router
+        ptype: router
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector: 
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - akso-router
+              topologyKey: "kubernetes.io/hostname"
+      initContainers:
+      - name: init-mydb
+        image: polaris007/akso-mysql:latest
+        command: ['sh', '-c', 'until nslookup akso-mysql-2.mysql; do echo waiting for mydb; sleep 2; done;']
+      containers:
+      - name: mysqlrouter1
+        image: polaris007/akso-mysql:latest
+        tty: true
+        stdin: true
+        env:
+        - name: NODE_TYPE
+          value: router
+        - name: PODPREFIX
+          value: "akso-mysql"
+        ports:
+        - name: mysql3306
+          containerPort: 3306
+        - name: mysql33060
+          containerPort: 33060
+        - name: mysql6446
+          containerPort: 6446
+        - name: mysql6447
+          containerPort: 6447
+        - name: mysql6606
+          containerPort: 6606
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: akso-router-service
+  labels:
+    name: mysqlrouter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6606
+    name: port66
+  - port: 3306
+    name: port33
+  - port: 33060
+    name: port330
+  - port: 6446
+    name: port64
+  - port: 6447
+    name: port6447
+  selector:
+    app: akso-router
+
